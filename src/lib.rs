@@ -4,5 +4,7 @@
 extern crate alloc;
 
 mod string;
+mod bytes;
 
 pub use string::*;
+pub use bytes::*;
