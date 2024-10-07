@@ -5,7 +5,7 @@ use core::cmp::Ordering;
 use core::{str, fmt};
 
 #[derive(Default, Clone)]
-pub struct HeapStr(crate::HeapBytes);
+pub struct HeapStr(crate::HeapSlice<u8>);
 
 impl From<&str> for HeapStr {
     fn from(value: &str) -> Self {
@@ -17,7 +17,7 @@ impl Deref for HeapStr {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         unsafe {
-            str::from_utf8_unchecked(&*self.0)
+            str::from_utf8_unchecked(&self.0)
         }
     }
 }
@@ -25,32 +25,32 @@ impl Deref for HeapStr {
 impl DerefMut for HeapStr {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe {
-            str::from_utf8_unchecked_mut(&mut *self.0)
+            str::from_utf8_unchecked_mut(&mut self.0)
         }
     }
 }
 
 impl AsRef<str> for HeapStr {
     fn as_ref(&self) -> &str {
-        &**self
+        self
     }
 }
 
 impl AsMut<str> for HeapStr {
     fn as_mut(&mut self) -> &mut str {
-        &mut **self
+        self
     }
 }
 
 impl Borrow<str> for HeapStr {
     fn borrow(&self) -> &str {
-        &**self
+        self
     }
 }
 
 impl BorrowMut<str> for HeapStr {
     fn borrow_mut(&mut self) -> &mut str {
-        &mut **self
+        self
     }
 }
 
