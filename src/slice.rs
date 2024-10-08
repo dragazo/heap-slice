@@ -6,6 +6,7 @@ use core::cmp::Ordering;
 use core::{slice, fmt};
 use core::ptr::NonNull;
 
+/// Basically [`Box<[T]>`](alloc::boxed::Box), but smaller.
 pub struct HeapSlice<T>(NonNull<u8>, PhantomData<T>);
 
 unsafe impl<T: Send> Send for HeapSlice<T> {}
@@ -43,9 +44,7 @@ impl<T> Deref for HeapSlice<T> {
     fn deref(&self) -> &Self::Target {
         if self.0.as_ptr() as usize != 1 {
             let align = align_of::<usize>().max(align_of::<T>());
-            unsafe {
-                slice::from_raw_parts(self.0.as_ptr().add(align) as *const T, (self.0.as_ptr() as *const usize).read())
-            }
+            unsafe { slice::from_raw_parts(self.0.as_ptr().add(align) as *const T, (self.0.as_ptr() as *const usize).read()) }
         } else {
             &[]
         }
@@ -55,10 +54,8 @@ impl<T> Deref for HeapSlice<T> {
 impl<T> DerefMut for HeapSlice<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         if self.0.as_ptr() as usize != 1 {
-            unsafe {
-                let align = align_of::<usize>().max(align_of::<T>());
-                slice::from_raw_parts_mut(self.0.as_ptr().add(align) as *mut T, (self.0.as_ptr() as *const usize).read())
-            }
+            let align = align_of::<usize>().max(align_of::<T>());
+            unsafe { slice::from_raw_parts_mut(self.0.as_ptr().add(align) as *mut T, (self.0.as_ptr() as *const usize).read()) }
         } else {
             &mut []
         }
@@ -68,16 +65,14 @@ impl<T> DerefMut for HeapSlice<T> {
 impl<T> Drop for HeapSlice<T> {
     fn drop(&mut self) {
         if self.0.as_ptr() as usize != 1 {
+            let values = &mut **self;
+            let align = align_of::<usize>().max(align_of::<T>());
+            let size = align + size_of_val(values);
+
             unsafe {
-                let values = &mut **self;
-
-                let align = align_of::<usize>().max(align_of::<T>());
-                let size = align + size_of_val(values);
-
-                for value in values {
+                for value in values.iter_mut() {
                     (value as *mut T).drop_in_place();
                 }
-
                 alloc::alloc::dealloc(self.0.as_ptr(), alloc::alloc::Layout::from_size_align(size, align).unwrap_unchecked());
             }
         }
@@ -206,4 +201,10 @@ fn test_basic() {
 
     let xx = HeapSlice::<String>::default();
     assert_eq!(xx, &[]);
+
+    let zz = HeapSlice::<u128>::from([1, 6, 3].as_slice());
+    assert_eq!(zz.len(), 3);
+    assert_eq!(zz[0], 1);
+    assert_eq!(zz[1], 6);
+    assert_eq!(zz[2], 3);
 }

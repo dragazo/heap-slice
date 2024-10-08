@@ -4,8 +4,25 @@ use core::hash::{Hash, Hasher};
 use core::cmp::Ordering;
 use core::{str, fmt};
 
+/// Basically [`Box<str>`](alloc::boxed::Box), but smaller.
 #[derive(Default, Clone)]
 pub struct HeapStr(crate::HeapSlice<u8>);
+
+impl HeapStr {
+    /// Attempts to construct a new [`HeapStr`] from its underlying [`HeapSlice<u8>`](crate::HeapSlice) container.
+    /// No allocations are performed.
+    pub fn from_utf8(content: crate::HeapSlice<u8>) -> Result<Self, core::str::Utf8Error> {
+        Ok(str::from_utf8(&content)?.into())
+    }
+    /// As [`HeapStr::from_utf8`], but does not perform its UTF-8 conformance check.
+    pub unsafe fn from_utf8_unchecked(content: crate::HeapSlice<u8>) -> Self {
+        str::from_utf8_unchecked(&content).into()
+    }
+    /// Extracts the underlying [`HeapSlice<u8>`](crate::HeapSlice) container.
+    pub fn into_bytes(self) -> crate::HeapSlice<u8> {
+        self.0
+    }
+}
 
 impl From<&str> for HeapStr {
     fn from(value: &str) -> Self {
@@ -111,14 +128,33 @@ fn test_basic() {
         assert_eq!(v.as_mut(), content);
         assert_eq!(<HeapStr as Borrow<str>>::borrow(&v), content);
         assert_eq!(<HeapStr as BorrowMut<str>>::borrow_mut(&mut v), content);
+
+        let mut vv = v.into_bytes();
+        assert_eq!(vv, content.as_bytes());
+        assert_eq!(vv.deref(), content.as_bytes());
+        assert_eq!(vv.deref_mut(), content.as_bytes());
+        assert_eq!(vv.as_ref(), content.as_bytes());
+        assert_eq!(vv.as_mut(), content.as_bytes());
+        assert_eq!(<crate::HeapSlice<u8> as Borrow<[u8]>>::borrow(&vv), content.as_bytes());
+        assert_eq!(<crate::HeapSlice<u8> as BorrowMut<[u8]>>::borrow_mut(&mut vv), content.as_bytes());
+
+        let mut vvv = HeapStr::from_utf8(vv).unwrap();
+        assert_eq!(vvv, content);
+        assert_eq!(vvv.deref(), content);
+        assert_eq!(vvv.deref_mut(), content);
+        assert_eq!(vvv.as_ref(), content);
+        assert_eq!(vvv.as_mut(), content);
+        assert_eq!(<HeapStr as Borrow<str>>::borrow(&vvv), content);
+        assert_eq!(<HeapStr as BorrowMut<str>>::borrow_mut(&mut vvv), content);
+
         std::thread::spawn(move || {
-            assert_eq!(v, content);
-            assert_eq!(v.deref(), content);
-            assert_eq!(v.deref_mut(), content);
-            assert_eq!(v.as_ref(), content);
-            assert_eq!(v.as_mut(), content);
-            assert_eq!(<HeapStr as Borrow<str>>::borrow(&v), content);
-            assert_eq!(<HeapStr as BorrowMut<str>>::borrow_mut(&mut v), content);
+            assert_eq!(vvv, content);
+            assert_eq!(vvv.deref(), content);
+            assert_eq!(vvv.deref_mut(), content);
+            assert_eq!(vvv.as_ref(), content);
+            assert_eq!(vvv.as_mut(), content);
+            assert_eq!(<HeapStr as Borrow<str>>::borrow(&vvv), content);
+            assert_eq!(<HeapStr as BorrowMut<str>>::borrow_mut(&mut vvv), content);
         }).join().unwrap();
     }
     assert_eq!(HeapStr::default(), "");

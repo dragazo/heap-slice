@@ -3,6 +3,7 @@
         "dealloc",
         "Hasher",
         "nonoverlapping",
-        "sptr"
+        "sptr",
+        "unsized"
     ]
 }
